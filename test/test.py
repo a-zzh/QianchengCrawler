@@ -1,0 +1,3 @@
+print("asad")
+
+print "asad"

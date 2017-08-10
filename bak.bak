@@ -1,0 +1,850 @@
+import os
+import re
+from urllib.parse import urlencode
+import time
+
+import requests
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import pymongo
+from config import *
+
+client = pymongo.MongoClient(MONGO_URL)
+db = client[MONGO_DB]
+
+browser = webdriver.Chrome()
+wait = WebDriverWait(browser,20)
+browser.set_window_size = (1400*900)
+
+def login(member,user,password):
+    try:
+        browser.get('http://ehire.51job.com/MainLogin.aspx')
+        #填入会员名、用户名、密码
+        member_name = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#txtMemberNameCN')))
+        user_name = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#txtUserNameCN')))
+        passwd = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#txtPasswordCN')))
+        member_name.clear()
+        user_name.clear()
+        passwd.clear()
+        member_name.send_keys(member)
+        user_name.send_keys(user)
+        passwd.send_keys(password)
+        #点击验证码
+        yzm = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#btnBeginValidate')))
+        yzm.click()
+        #time.sleep(20)
+        #手工输入验证码完成后，自动点击验证按钮
+        verify = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#btnValidate.yz-bot-btn.on')))
+        verify.click()
+        #点击登录
+        submit = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#Login_btnLoginCN')))
+        submit.click()
+    except Exception:
+        print('登录失败')
+
+
+def get_resume():
+    try:
+        #跳转到应聘管理页
+        resume = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#MainMenuNew1_m2')))
+        resume.click()
+        #获取cookies
+        for item in browser.get_cookies():
+            if item.get('name')=='HRUSERINFO':
+                cookie = 'HRUSERINFO'+'='+item.get('value')
+        headers = {
+            'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36',
+            'Cookie':cookie
+        }
+        #添加延迟,等待页码标签加载完成
+        #获取页码数
+        delay = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#form1 > div.commonMain > div > div.fn-main.list-main > div.list-table-title.clearfix > ul.page-ft-r.clearfix > li.Search_num-set > span')))
+        bsobj = BeautifulSoup(browser.page_source,'lxml')
+        page_nums = int(bsobj.find('ul',{'id':'ul_selectlist'}).parent.findAll('ul')[1].find('select').parent.find('span').get_text().split('/')[1])
+        #获取本页求职者id
+        urls = bsobj.findAll('a',{'class':'a_username'})
+        length = len(urls)
+        for i in range(length):
+            params = {
+                'hidSeqID':re.compile(r'hidSeqID=(.*?)&').search(str(urls[i])).group(1),
+                'hidFolder':re.compile(r'hidFolder=(.*?)"').search(str(urls[i])).group(1)
+            }
+            url = 'http://ehire.51job.com/' + urls[i].attrs['href']
+            f_urls.write(url+'\n')
+            response = requests.get(url,headers=headers)
+            if response.status_code==200:
+                parse_resume(response.text)
+                print('正在解析%s的简历页' % re.compile(r'hidSeqID=(.*?)&').search(str(urls[i])).group(1))
+        #获取总共的页码数,作为循环次数条件
+        # 此处需要测试,看是否出现页数为0的情况
+        if page_nums == 1:
+            pass
+        else:
+            for i in range(1,page_nums):
+                next_page = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#pagerBottomNew_nextButton')))
+                next_page.click()
+                get_resume()
+
+    except Exception as e:
+        print(e.args)
+
+
+def parse_resume(html):
+    print('解析成功')
+
+
+def main():
+    try:
+        global f_urls
+        f_urls = open(os.getcwd()+r'\urls_getted.txt','a+',encoding='utf-8',errors='ignore')
+
+        login(member='诚智汇达',user='CZHD808',password='czhd1234')
+        get_resume()
+
+        f_urls.close()
+    except Exception:
+        print('出错啦')
+    #finally:
+    #    browser.quit()
+
+if __name__ == '__main__':
+    main()
+
+
+
+###############################第一次可运行版备份####################
+import os
+import re
+import requests
+import time
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import logging
+from parse import *
+
+
+#设置selenium参数
+browser = webdriver.Chrome()
+wait = WebDriverWait(browser,1800)
+browser.set_window_size = (1400*900)
+
+
+#模拟登录
+def login(member,user,password):
+    logging.basicConfig(filename='error.log',level=logging.INFO)
+    try:
+        browser.get('http://ehire.51job.com/MainLogin.aspx')
+        #填入会员名、用户名、密码
+        member_name = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#txtMemberNameCN')))
+        user_name = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#txtUserNameCN')))
+        passwd = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#txtPasswordCN')))
+        member_name.clear()
+        user_name.clear()
+        passwd.clear()
+        member_name.send_keys(member)
+        user_name.send_keys(user)
+        passwd.send_keys(password)
+        #点击验证码
+        yzm = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#btnBeginValidate')))
+        yzm.click()
+        #手工输入验证码完成后，自动点击验证按钮
+        verify = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#btnValidate.yz-bot-btn.on')))
+        verify.click()
+        #点击登录
+        submit = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#Login_btnLoginCN')))
+        submit.click()
+        #检测是否模拟登陆是否成功(通过查看'立即登录'按钮是否存在)
+        if BeautifulSoup(browser.page_source,'lxml').find('a',{'id':'Login_btnLoginCN'}):
+            print('模拟登陆失败,请重试！')
+            login(member,user,password)
+    except Exception as e:
+        logging.info(member+'\n'+user+'\n'+password+'\n'+str(e.args))
+        print('登录失败,正在重试:%s' % str(e.args))
+
+
+#获取简历索引页中每份简历的id
+def get_resume(member,user,password):
+    global headers
+    logging.basicConfig(filename='error.log',level=logging.INFO)
+    try:
+        #跳转到应聘管理页
+        resume = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#MainMenuNew1_m2')))
+        resume.click()
+        #获取cookies(放在点击应聘管理页后,可以确保cookies中的HRUSERINFO加载完成)
+        for item in browser.get_cookies():
+            if item.get('name')=='HRUSERINFO':
+                cookie = 'HRUSERINFO'+'='+item.get('value')
+        headers = {
+            'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36',
+            'Cookie':cookie
+        }
+        #添加延迟,等待页码标签加载完成,获取页码数
+        delay = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#form1 > div.commonMain > div > div.fn-main.list-main > div.list-table-title.clearfix > ul.page-ft-r.clearfix > li.Search_num-set > span')))
+        bsobj = BeautifulSoup(browser.page_source,'lxml')
+        page_nums = int(bsobj.find('ul',{'id':'ul_selectlist'}).parent.findAll('ul')[1].find('select').parent.find('span').get_text().split('/')[1])
+        #获取第1页所有求职者id
+        get_ids()
+        print('获取简历索引页第1页数据成功')
+        #此处需要测试,看是否出现页数为0的情况!!
+        if page_nums==1:
+            return True
+        else:
+            for i in range(100,page_nums-1):
+                yzm_index(i)
+        return True
+    except Exception as e:
+        logging.info(member+'\n'+user+'\n'+password+'\n'+str(e.args))
+        print('应聘管理页程序出错,正在重试%s' % str(e.args))
+        get_resume(member,user,password)
+
+
+def get_ids():
+    try:
+        #获取本页所有求职者id
+        bsobj = BeautifulSoup(browser.page_source,'lxml')
+        urls = bsobj.findAll('a',{'class':'a_username'})
+        length = len(urls)
+        for i in range(length):
+            url = 'http://ehire.51job.com/'+urls[i].attrs['href']
+            f_urls.write(url+'\n')
+    except Exception as e:
+        pass
+
+
+def parse_resume(url,headers):
+    try:
+        response = requests.get(url,headers=headers)
+        if response.status_code == 200:
+            bsobj = BeautifulSoup(response.text,'lxml')
+            #检测是否出现验证码,正常返回数据则调用解析简历函数get_info()
+            if bsobj.find('td',text='求职意向') or bsobj.find('td',text='更多信息'):
+                #解析简历页函数
+                get_info(bsobj)
+                print('%s的简历页解析完成' % re.compile(r'hidSeqID=(.*?)&').search(str(url)).group(1))
+            #没有出现预期数据,则判定为出现了验证码,在浏览器中打开验证码页面
+            else:
+                browser.get(url)
+                yzm_verify = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'.yz-bot-btn.on')))
+                yzm_verify.click()
+                if bsobj.find('td',text='求职意向') or bsobj.find('td',text='更多信息'):
+                    #解析简历页函数
+                    get_info(bsobj)
+                    print('%s的简历页解析完成' % re.compile(r'hidSeqID=(.*?)&').search(str(url)).group(1))
+                else:
+                    parse_resume(url,headers)
+    except Exception as e:
+        pass
+
+
+def yzm_index(i):
+    next_page = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#pagerBottomNew_nextButton')))
+    next_page.click()
+    #检查是否跳验证码页面
+    bsobj_verify = BeautifulSoup(browser.page_source,'lxml')
+    if not bsobj_verify.find('a',text='匹配度'):
+        yz_able = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#btnValidate')))
+        yz_able.click()
+        #检测验证码是否输入正确
+        if not BeautifulSoup(browser.page_source,'lxml').find('a',text='匹配度'):
+            yzm_index(i)
+        else:
+            #获取该页的所有求职者id
+            get_ids()
+    else:
+        #获取该页的所有求职者id
+        get_ids()
+        print('获取简历索引页第%s页数据成功' % str(i+2))
+
+
+def main(member,user,password):
+    logging.basicConfig(filename='error.log',level=logging.INFO)
+    try:
+        global f_urls
+        f_urls = open(os.getcwd()+r'\urls_getted.txt','a+',encoding='utf-8',errors='ignore')
+
+        login(member,user,password)
+        result = get_resume(member,user,password)
+        if result:
+            with open(os.getcwd() + r'\urls_getted.txt', 'r', encoding='utf-8', errors='ignore') as f:
+                idl = f.read().split('\n')
+                f.close()
+            for url in idl:
+                parse_resume(url,headers)
+
+        f_urls.close()
+    except Exception as e:
+        logging.info(member+'\n'+user+'\n'+password+'\n'+str(e.args))
+        print('主程序出错啦:%s' % str(e.args))
+
+
+if __name__ == '__main__':
+    #遍历hr列表,拿到member,user,password
+    ####
+    main('诚智汇达','CZHD808','czhd1234')
+
+
+#########################################第二版可运行备份#####################
+import os
+import re
+import requests
+import time
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import logging
+from parse import *
+
+
+#设置selenium参数
+browser = webdriver.Chrome()
+wait = WebDriverWait(browser,1800)
+browser.set_window_size = (1400*900)
+
+
+#模拟登录
+def login(member,user,password):
+    logging.basicConfig(filename='error.log',level=logging.INFO)
+    try:
+        browser.get('http://ehire.51job.com/MainLogin.aspx')
+        #填入会员名、用户名、密码
+        member_name = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#txtMemberNameCN')))
+        user_name = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#txtUserNameCN')))
+        passwd = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#txtPasswordCN')))
+        member_name.clear()
+        user_name.clear()
+        passwd.clear()
+        member_name.send_keys(member)
+        user_name.send_keys(user)
+        passwd.send_keys(password)
+        #点击验证码
+        yzm = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#btnBeginValidate')))
+        yzm.click()
+        #手工输入验证码完成后，自动点击验证按钮
+        verify = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#btnValidate.yz-bot-btn.on')))
+        verify.click()
+        #点击登录
+        submit = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#Login_btnLoginCN')))
+        submit.click()
+        #检测是否模拟登陆是否成功(通过查看'立即登录'按钮是否存在进行判断)
+        if BeautifulSoup(browser.page_source,'lxml').find('a',{'id':'Login_btnLoginCN'}):
+            print('模拟登陆失败,请重试！')
+            login(member,user,password)
+    except Exception as e:
+        logging.info(member+'\n'+user+'\n'+password+'\n'+str(e.args))
+        print('登录失败,错误信息已经纪录到error.log:%s' % str(e.args))
+
+
+#获取简历索引页中每份简历的id
+def get_resume(member,user,password):
+    global headers
+    logging.basicConfig(filename='error.log',level=logging.INFO)
+    try:
+        #跳转到应聘管理页
+        resume = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#MainMenuNew1_m2')))
+        resume.click()
+        #获取cookies(放在点击应聘管理页后,可以确保cookies中的HRUSERINFO加载完成)
+        for item in browser.get_cookies():
+            if item.get('name')=='HRUSERINFO':
+                cookie = 'HRUSERINFO'+'='+item.get('value')
+        headers = {
+            'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36',
+            'Cookie':cookie
+        }
+        #添加延迟,等待页码标签加载完成,获取页码数
+        delay = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#form1 > div.commonMain > div > div.fn-main.list-main > div.list-table-title.clearfix > ul.page-ft-r.clearfix > li.Search_num-set > span')))
+        bsobj = BeautifulSoup(browser.page_source,'lxml')
+        page_nums = int(bsobj.find('ul',{'id':'ul_selectlist'}).parent.findAll('ul')[1].find('select').parent.find('span').get_text().split('/')[1])
+        #获取第1页所有求职者id
+        get_ids()
+        print('获取简历索引页第1页数据成功')
+        #此处需要测试,看是否出现页数为0的情况!!
+        if page_nums==1:
+            return True
+        else:
+            for i in range(page_nums-1):
+                yzm_index(i,member,user,password)
+        return True
+    except Exception as e:
+        logging.info(member+'\n'+user+'\n'+password+'\n'+str(e.args))
+        print('应聘管理页程序出错,正在重试%s' % str(e.args))
+        get_resume(member,user,password)
+
+
+def yzm_index(i,member,user,password):
+    next_page = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#pagerBottomNew_nextButton')))
+    next_page.click()
+    #检查是否跳验证码页面
+    bsobj_verify = BeautifulSoup(browser.page_source,'lxml')
+    if not bsobj_verify.find('a',text='匹配度') and not bsobj_verify.find('a',{'id':'Login_btnLoginCN'}):
+        yz_able = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#btnValidate')))
+        yz_able.click()
+        #检测验证码是否输入正确
+        if not BeautifulSoup(browser.page_source,'lxml').find('a',text='匹配度'):
+            yzm_index(i,member,user,password)
+        else:
+            #获取该页的所有求职者id
+            get_ids()
+    #检测是否被服务器退出账号
+    if bsobj_verify.find('a',{'id':'Login_btnLoginCN'}):
+        print('模拟登陆失败,请重试！')
+        login(member,user,password)
+
+
+    else:
+        #获取该页的所有求职者id
+        get_ids()
+        print('获取简历索引页第%s页数据成功' % str(i+2))
+
+
+def get_ids():
+    try:
+        #获取本页所有求职者id
+        bsobj = BeautifulSoup(browser.page_source,'lxml')
+        urls = bsobj.findAll('a',{'class':'a_username'})
+        length = len(urls)
+        for i in range(length):
+            url = 'http://ehire.51job.com/'+urls[i].attrs['href']
+            f_urls.write(url+'\n')
+    except Exception as e:
+        pass
+
+
+def parse_resume(url,headers):
+    try:
+        response = requests.get(url,headers=headers)
+        if response.status_code == 200:
+            bsobj = BeautifulSoup(response.text,'lxml')
+            #检测是否出现验证码,正常返回数据则调用解析简历函数get_info()
+            if bsobj.find('td',text='求职意向') or bsobj.find('td',text='更多信息'):
+                #解析简历页函数
+                get_info(bsobj)
+                print('%s的简历页解析完成' % re.compile(r'hidSeqID=(.*?)&').search(str(url)).group(1))
+            #没有出现预期数据,则判定为出现了验证码,在浏览器中打开验证码页面
+            else:
+                browser.get(url)
+                yzm_verify = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'.yz-bot-btn.on')))
+                yzm_verify.click()
+                if bsobj.find('td',text='求职意向') or bsobj.find('td',text='更多信息'):
+                    #解析简历页函数
+                    get_info(bsobj)
+                    print('%s的简历页解析完成' % re.compile(r'hidSeqID=(.*?)&').search(str(url)).group(1))
+                else:
+                    parse_resume(url,headers)
+    except Exception as e:
+        pass
+
+
+def main(member,user,password):
+    logging.basicConfig(filename='error.log',level=logging.INFO)
+    try:
+        global f_urls
+        f_urls = open(os.getcwd()+r'\urls_getted.txt','a+',encoding='utf-8',errors='ignore')
+
+        login(member,user,password)
+        result = get_resume(member,user,password)
+        if result:
+            with open(os.getcwd() + r'\urls_getted.txt', 'r', encoding='utf-8', errors='ignore') as f:
+                idl = f.read().split('\n')
+                f.close()
+            for url in idl:
+                parse_resume(url,headers)
+
+        f_urls.close()
+    except Exception as e:
+        logging.info(member+'\n'+user+'\n'+password+'\n'+str(e.args))
+        print('主程序出错啦:%s' % str(e.args))
+
+
+if __name__ == '__main__':
+    #遍历hr列表,拿到member,user,password
+    ####
+    main('诚智汇达','CZHD808','czhd1234')
+
+
+ ###########################可运行第三版#############
+ import os
+import re
+import requests
+import time
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import logging
+from parse import *
+
+
+#设置selenium参数
+browser = webdriver.Chrome()
+wait = WebDriverWait(browser,1800)
+browser.set_window_size = (1400*900)
+
+
+#模拟登录
+def login(member,user,password):
+    logging.basicConfig(filename='error.log',level=logging.INFO)
+    try:
+        browser.get('http://ehire.51job.com/MainLogin.aspx')
+        #填入会员名、用户名、密码
+        member_name = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#txtMemberNameCN')))
+        user_name = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#txtUserNameCN')))
+        passwd = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#txtPasswordCN')))
+        member_name.clear()
+        user_name.clear()
+        passwd.clear()
+        member_name.send_keys(member)
+        user_name.send_keys(user)
+        passwd.send_keys(password)
+        #点击验证码
+        yzm = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#btnBeginValidate')))
+        yzm.click()
+        #手工输入验证码完成后，自动点击验证按钮
+        verify = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#btnValidate.yz-bot-btn.on')))
+        verify.click()
+        #点击登录
+        submit = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#Login_btnLoginCN')))
+        submit.click()
+        #检测是否模拟登陆是否成功(通过查看'立即登录'按钮是否存在进行判断)
+        if BeautifulSoup(browser.page_source,'lxml').find('a',{'id':'Login_btnLoginCN'}):
+            print('模拟登陆失败,请重试！')
+            login(member,user,password)
+    except Exception as e:
+        logging.info(member+'\n'+user+'\n'+password+'\n'+str(e.args))
+        print('登录失败,错误信息已经纪录到error.log:%s' % str(e.args))
+
+
+#解析简历页
+def parse_resume(url,headers,member,user,password):
+    try:
+        #proxy = {'http':requests.get()}
+        response = requests.get(url,headers=headers,timeout=10)
+        if response.status_code==200:
+            bsobj = BeautifulSoup(response.text,'lxml')
+            #检测是否出现验证码,正常返回数据则调用解析简历函数get_info()
+            if bsobj.find('td',text='求职意向') or bsobj.find('td',text='更多信息'):
+                #解析简历页函数
+                get_info(bsobj)
+                print('%s的简历页解析完成' % re.compile(r'hidSeqID=(.*?)&').search(str(url)).group(1))
+            #没有出现预期数据,则判定为出现了验证码,在浏览器中打开验证码页面
+            else:
+                browser.get(url)
+                yzm_verify = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'.yz-bot-btn.on')))
+                yzm_verify.click()
+                if bsobj.find('td',text='求职意向') or bsobj.find('td',text='更多信息'):
+                    #解析简历页函数
+                    get_info(bsobj)
+                    print('%s的简历页解析完成' % re.compile(r'hidSeqID=(.*?)&').search(str(url)).group(1))
+                else:
+                    parse_resume(url,headers)
+    except Exception as e:
+        pass
+
+
+#获取索引页中所有简历的id
+def get_ids(i,member,user):
+    try:
+        #获取本页所有求职者id
+        bsobj = BeautifulSoup(browser.page_source,'lxml')
+        urls = bsobj.findAll('a',{'class':'a_username'})
+        length = len(urls)
+        for i in range(length):
+            url = 'http://ehire.51job.com/'+urls[i].attrs['href']
+            f_urls.write(url+'\n')
+    except Exception as e:
+        print('抓取%s-%s的第%s索引页id失败' % (i,member,user))
+
+
+#处理索引页验证码输入错误,进行重新输入
+def yzm_index(i,member,user,password):
+    #跳转到下一页
+    next_page = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#pagerBottomNew_nextButton')))
+    next_page.click()
+    #检查是否跳验证码页面
+    bsobj_verify = BeautifulSoup(browser.page_source,'lxml')
+    if not bsobj_verify.find('a',text='匹配度') and not bsobj_verify.find('a',{'id':'Login_btnLoginCN'}):
+        yz_able = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#btnValidate')))
+        yz_able.click()
+        #检测验证码是否输入正确
+        if not BeautifulSoup(browser.page_source,'lxml').find('a',text='匹配度'):
+            yzm_index(i,member,user,password)
+        else:
+            #获取该页的所有求职者id
+            get_ids(i,member,user)
+    #检测是否被服务器退出账号
+    #if bsobj_verify.find('a',{'id':'Login_btnLoginCN'}):
+    #    print('模拟登陆失败,请重试！')
+    #    login(member,user,password)
+        #如果被服务器退出账号,需要进行断点恢复
+        pass
+    else:
+        #获取该页的所有求职者id
+        get_ids(i,member,user)
+        print('获取简历索引页第%s页数据成功' % str(i+2))
+
+
+#获取简历索引页中每份简历的id
+def get_resume(member,user,password):
+    global headers
+    logging.basicConfig(filename='error.log',level=logging.INFO)
+    try:
+        #跳转到应聘管理页
+        resume = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#MainMenuNew1_m2')))
+        resume.click()
+        #获取cookies(放在点击应聘管理页后,可以确保cookies中的HRUSERINFO加载完成)
+        for item in browser.get_cookies():
+            if item.get('name')=='HRUSERINFO':
+                cookie = 'HRUSERINFO'+'='+item.get('value')
+        headers = {
+            'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36',
+            'Cookie':cookie
+        }
+        #添加延迟,等待页码标签加载完成,获取页码数
+        delay = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#form1 > div.commonMain > div > div.fn-main.list-main > div.list-table-title.clearfix > ul.page-ft-r.clearfix > li.Search_num-set > span')))
+        bsobj = BeautifulSoup(browser.page_source,'lxml')
+        page_nums = int(bsobj.find('ul',{'id':'ul_selectlist'}).parent.findAll('ul')[1].find('select').parent.find('span').get_text().split('/')[1])
+        #获取第1页所有求职者id
+        get_ids(1,member,user)
+        print('获取简历索引页第1页数据成功')
+        #此处需要测试,看是否出现页数为0的情况!!
+        if page_nums==1:
+            return True
+        else:
+            for i in range(page_nums-1):
+                #检测是否出现验证码
+                yzm_index(i,member,user,password)
+        return True
+    except Exception as e:
+        logging.info(member+'\n'+user+'\n'+password+'\n'+str(e.args))
+        print('应聘管理页程序出错,正在重试%s' % str(e.args))
+        get_resume(member,user,password)
+
+
+
+def main(member,user,password):
+    logging.basicConfig(filename='error.log',level=logging.INFO)
+    try:
+        global f_urls
+        f_urls = open(os.getcwd()+r'\\'+str(member)+'_'+str(user)+r'.txt','a+',encoding='utf-8',errors='ignore')
+
+        login(member,user,password)
+        result = get_resume(member,user,password)
+        if result:
+            with open(os.getcwd()+r'\\'+str(member)+'_'+str(user)+r'.txt','r',encoding='utf-8',errors='ignore') as f:
+                idl = f.read().split('\n')
+                f.close()
+            for url in idl:
+                parse_resume(url,headers,member,user,password)
+
+        f_urls.close()
+    except Exception as e:
+        logging.info(member+'\n'+user+'\n'+password+'\n'+str(e.args))
+        print('主程序出错啦:%s' % str(e.args))
+
+
+if __name__ == '__main__':
+    #遍历hr列表,拿到member,user,password
+    ####
+    main('诚智汇达','CZHD808','czhd1234')
+
+ ##########################封装成类后可运行版####################
+
+
+ import os
+import re
+import requests
+import time
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import logging
+from parse import *
+
+
+#设置selenium参数
+browser = webdriver.Chrome()
+wait = WebDriverWait(browser,1800)
+browser.set_window_size = (1400*900)
+
+
+class Spider(object):
+    def __init__(self,get_info):
+        self.get_info = get_info
+
+    #模拟登录
+    def login(self,member,user,password):
+        logging.basicConfig(filename='error_index.log',level=logging.INFO)
+        try:
+            browser.get('http://ehire.51job.com/MainLogin.aspx')
+            #填入会员名、用户名、密码
+            member_name = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#txtMemberNameCN')))
+            user_name = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#txtUserNameCN')))
+            passwd = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#txtPasswordCN')))
+            member_name.clear()
+            user_name.clear()
+            passwd.clear()
+            member_name.send_keys(member)
+            user_name.send_keys(user)
+            passwd.send_keys(password)
+            #点击验证码
+            yzm = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#btnBeginValidate')))
+            yzm.click()
+            #手工输入验证码完成后，自动点击验证按钮
+            verify = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#btnValidate.yz-bot-btn.on')))
+            verify.click()
+            #点击登录
+            submit = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#Login_btnLoginCN')))
+            submit.click()
+            #检测是否模拟登陆是否成功(通过查看'立即登录'按钮是否存在进行判断)
+            if BeautifulSoup(browser.page_source,'lxml').find('a',{'id':'Login_btnLoginCN'}):
+                print('模拟登陆失败,请重试！')
+                self.login(member,user,password)
+        except Exception as e:
+            logging.info(member+'\n'+user+'\n'+password+'\n'+str(e.args))
+            print('登录失败,错误信息已经纪录到error.log:%s' % str(e.args))
+
+    #解析简历页
+    def parse_resume(self,url,headers,member,user,password):
+        logging.basicConfig(filename='error_profile.log',level=logging.INFO)
+        try:
+            #proxy = {'http':requests.get()}
+            response = requests.get(url,headers=headers,timeout=10)
+            if response.status_code==200:
+                bsobj = BeautifulSoup(response.text,'lxml')
+                #检测是否出现验证码,正常返回数据则调用解析简历函数get_info()
+                if bsobj.find('td',text='求职意向') or bsobj.find('td',text='更多信息'):
+                    #解析简历页函数
+                    get_info(bsobj)
+                    print('%s的简历页解析完成' % re.compile(r'hidSeqID=(.*?)&').search(str(url)).group(1))
+                #没有出现预期数据,则判定为出现了验证码,在浏览器中打开验证码页面
+                else:
+                    browser.get(url)
+                    yzm_verify = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'.yz-bot-btn.on')))
+                    yzm_verify.click()
+                    if bsobj.find('td',text='求职意向') or bsobj.find('td',text='更多信息'):
+                        #解析简历页函数
+                        self.get_info(bsobj)
+                        print('%s的简历页解析完成' % re.compile(r'hidSeqID=(.*?)&').search(str(url)).group(1))
+                    else:
+                        self.parse_resume(url,headers)
+        except Exception as e:
+            logging.info(str(member)+':'+str(user)+':'+str(password)+':'+url+'\n')
+            print('解析简历详细资料出错,已经纪录到文件error.profile')
+
+    #获取索引页中所有简历的id
+    def get_ids(self,i,member,user):
+        try:
+            #获取本页所有求职者id
+            bsobj = BeautifulSoup(browser.page_source,'lxml')
+            urls = bsobj.findAll('a',{'class':'a_username'})
+            length = len(urls)
+            for i in range(length):
+                url = 'http://ehire.51job.com/'+urls[i].attrs['href']
+                f_urls.write(url+'\n')
+        except Exception as e:
+            print('抓取%s-%s的第%s索引页id失败' % (i,member,user))
+
+    #处理索引页验证码输入错误,进行重新输入
+    def yzm_index(self,i,member,user,password):
+        #跳转到下一页
+        next_page = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#pagerBottomNew_nextButton')))
+        next_page.click()
+        #检查是否跳验证码页面
+        bsobj_verify = BeautifulSoup(browser.page_source,'lxml')
+        if not bsobj_verify.find('a',text='匹配度') and not bsobj_verify.find('a',{'id':'Login_btnLoginCN'}):
+            yz_able = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#btnValidate')))
+            yz_able.click()
+            #检测验证码是否输入正确
+            if not BeautifulSoup(browser.page_source,'lxml').find('a',text='匹配度'):
+                self.yzm_index(i,member,user,password)
+            else:
+                #获取该页的所有求职者id
+                self.get_ids(i,member,user)
+        #检测是否被服务器退出账号
+        #if bsobj_verify.find('a',{'id':'Login_btnLoginCN'}):
+        #    print('模拟登陆失败,请重试！')
+        #    login(member,user,password)
+            #如果被服务器退出账号,需要进行断点恢复
+            pass
+        else:
+            #获取该页的所有求职者id
+            self.get_ids(i,member,user)
+            print('获取简历索引页第%s页数据成功' % str(i+2))
+
+
+    #获取简历索引页中每份简历的id
+    def get_resume(self,member,user,password):
+        global headers
+        global i
+        logging.basicConfig(filename='error.log',level=logging.INFO)
+        try:
+            #跳转到应聘管理页
+            resume = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#MainMenuNew1_m2')))
+            resume.click()
+            #获取cookies(放在点击应聘管理页后,可以确保cookies中的HRUSERINFO加载完成)
+            for item in browser.get_cookies():
+                if item.get('name')=='HRUSERINFO':
+                    cookie = 'HRUSERINFO'+'='+item.get('value')
+            headers = {
+                'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36',
+                'Cookie':cookie
+            }
+            #添加延迟,等待页码标签加载完成,获取页码数
+            delay = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#form1 > div.commonMain > div > div.fn-main.list-main > div.list-table-title.clearfix > ul.page-ft-r.clearfix > li.Search_num-set > span')))
+            bsobj = BeautifulSoup(browser.page_source,'lxml')
+            page_nums = int(bsobj.find('ul',{'id':'ul_selectlist'}).parent.findAll('ul')[1].find('select').parent.find('span').get_text().split('/')[1])
+            #获取第1页所有求职者id
+            self.get_ids(1,member,user)
+            print('获取简历索引页第1页数据成功')
+            #此处需要测试,看是否出现页数为0的情况!!
+            if page_nums==1:
+                return True
+            else:
+                for i in range(page_nums-1):
+                    #检测是否出现验证码
+                    self.yzm_index(i,member,user,password)
+            return True
+        except Exception as e:
+            logging.info(member+'\n'+user+'\n'+password+'\n'+str(e.args))
+            print('应聘管理页程序出错,正在重试%s' % str(e.args))
+            self.yzm_index(i,member,user,password)
+
+    #主程序
+    def main(self,member,user,password):
+        logging.basicConfig(filename='error.log',level=logging.INFO)
+        try:
+            global f_urls
+            f_urls = open(os.getcwd()+r'\\'+str(member)+'_'+str(user)+r'.txt','a+',encoding='utf-8',errors='ignore')
+            self.login(member,user,password)
+            result = self.get_resume(member,user,password)
+            if result:
+                with open(os.getcwd()+r'\\'+str(member)+'_'+str(user)+r'.txt','r',encoding='utf-8',errors='ignore') as f:
+                    idl = f.read().split('\n')
+                    f.close()
+                for url in idl:
+                    self.parse_resume(url,headers,member,user,password)
+            f_urls.close()
+        except Exception as e:
+            logging.info(member+'\n'+user+'\n'+password+'\n'+str(e.args))
+            print('主程序出错啦:%s' % str(e.args))
+
+    #入口程序
+    def run(self):
+        #遍历hr列表,拿到member,user,password
+        ####
+        self.main('诚智汇达','CZHD808','czhd1234')
+
+
+if __name__ == '__main__':
+    spider_51 = Spider(get_info)
+    spider_51.run()
